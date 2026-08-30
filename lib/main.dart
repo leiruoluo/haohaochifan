@@ -1,12 +1,11 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
-import 'package:web/web.dart' as web;
 
 import 'app.dart';
 import 'pages/onboarding_page.dart';
+import 'platform/reload.dart';
 import 'services/reminders.dart';
 import 'state/app_state.dart';
 import 'theme.dart';
@@ -60,15 +59,7 @@ class BootErrorApp extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               FilledButton.icon(
-                onPressed: () {
-                  // 重新加载页面重试
-                  if (kIsWeb) {
-                    // ignore: avoid_dynamic_calls
-                    web.window.location.reload();
-                  } else {
-                    SystemNavigator.pop();
-                  }
-                },
+                onPressed: reloadPage,
                 icon: const Icon(Icons.refresh),
                 label: const Text('重新加载'),
               ),
