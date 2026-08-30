@@ -61,22 +61,28 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Restore signing keystore from Secrets
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      - name: Restore signing keystore (if secret configured)
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+            echo "::notice::keystore restored from secret"
+          else
+            echo "::warning::KEYSTORE_BASE64 未设置，APK 将跳过签名构建"
+          fi
+        shell: bash
 
-      - name: Build Android APK (signed)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      - name: Build Android APK
         env:
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
-        run: flutter build apk --release
-
-      - name: Note when secrets missing
-        if: ${{ secrets.KEYSTORE_BASE64 == '' }}
-        run: echo "::warning::KEYSTORE_BASE64 未设置，跳过 APK 构建。请在仓库 Settings → Secrets 添加后重跑本任务。"
+        run: |
+          if [ -f android/app/release.keystore ]; then
+            flutter build apk --release
+          else
+            echo "skip APK build (keystore not configured)"
+          fi
+        shell: bash
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
