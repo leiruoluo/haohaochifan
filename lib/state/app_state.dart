@@ -295,6 +295,26 @@ class AppState extends ChangeNotifier {
 
   Future<List<WeightRecord>> weights() => repo.getWeights();
 
+  Future<WeightRecord?> weightForDate(DateTime d) => repo.getWeightForDate(d);
+
+  /// 记录某天体重（同一天重复记录会覆盖）
+  Future<void> saveWeightForDate(DateTime d, double kg) async {
+    final existing = await repo.getWeightForDate(d);
+    final w = WeightRecord(
+      id: existing?.id ?? genUuid(),
+      date: dbmod.dayOnly(d),
+      weightKg: kg,
+      updatedAt: DateTime.now(),
+    );
+    await repo.upsertWeight(w);
+    notifyListeners();
+  }
+
+  Future<void> removeWeight(String id) async {
+    await repo.deleteWeight(id);
+    notifyListeners();
+  }
+
   // ---------------- 局域网同步 ----------------
   Future<void> startLanServer() async {
     try {

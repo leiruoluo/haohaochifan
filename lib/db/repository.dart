@@ -162,6 +162,13 @@ class AppRepository {
     return rows.map(WeightRecord.fromMap).toList();
   }
 
+  Future<WeightRecord?> getWeightForDate(DateTime d) async {
+    final rows = await db.query('weights',
+        where: 'date = ?', whereArgs: [dbmod.dayKey(d)], limit: 1);
+    if (rows.isEmpty) return null;
+    return WeightRecord.fromMap(rows.first);
+  }
+
   Future<void> upsertWeight(WeightRecord w) async {
     await db.insert('weights', w.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);

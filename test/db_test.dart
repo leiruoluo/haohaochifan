@@ -74,4 +74,30 @@ void main() {
     expect(log2.meals.length, 1);
     expect(log2.meals.first.mealName, '早餐');
   });
+
+  test('体重记录：同一天覆盖，不同天独立', () async {
+    final db = await databaseFactoryFfiNoIsolate.openDatabase(
+      inMemoryDatabasePath,
+      options: OpenDatabaseOptions(
+          version: 1, onCreate: (db, _) => dbmod.createSchema(db)),
+    );
+    final repo = AppRepository(db);
+    final state = AppState(repo);
+    await state.init();
+
+    final d1 = DateTime(2026, 9, 5);
+    await state.saveWeightForDate(d1, 65.5);
+    await state.saveWeightForDate(d1, 65.2); // 覆盖
+    await state.saveWeightForDate(DateTime(2026, 9, 7), 65.0);
+
+    final w1 = await state.weightForDate(d1);
+    expect(w1, isNotNull);
+    expect(w1!.weightKg, 65.2);
+
+    final all = await state.weights();
+    expect(all.length, 2);
+
+    await state.removeWeight(w1.id);
+    expect((await state.weights()).length, 1);
+  });
 }

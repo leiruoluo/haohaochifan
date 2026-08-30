@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../engine/settlement.dart';
 import '../engine/slogan.dart';
+import '../models/exercise.dart' show WeightRecord;
 import '../models/log.dart';
 import '../models/profile.dart';
 import '../state/app_state.dart';
@@ -25,6 +26,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
   DayLog? _log;
   DaySettlement? _s;
   String _slogan = '';
+  WeightRecord? _weight;
 
   @override
   void initState() {
@@ -37,10 +39,12 @@ class _DayDetailPageState extends State<DayDetailPage> {
     final log = await state.dayLog(widget.date);
     final s = await state.settlement(widget.date);
     final profile = state.profile ?? const UserProfile();
+    final weight = await state.weightForDate(widget.date);
     if (mounted) {
       setState(() {
         _log = log;
         _s = s;
+        _weight = weight;
         _slogan = pickSlogan(
             profile: profile, s: s, dayOfYear: widget.date.difference(DateTime(widget.date.year)).inDays);
       });
@@ -74,6 +78,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
           _sloganBar(),
           _summaryCard(s),
           _waterCard(log, s),
+          _weightCard(log),
           ..._mealCards(log),
           _addMealButton(),
           _exerciseCard(log, s),
@@ -460,6 +465,79 @@ class _DayDetailPageState extends State<DayDetailPage> {
         .where((m) => m.entries.isNotEmpty || m.id != meal.id)
         .toList();
     await state.saveDayLog(log.copyWith(meals: meals));
+    await _reload();
+  }
+
+  Widget _weightCard(DayLog log) {
+    final w = _weight;
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.monitor_weight_outlined,
+            color: AppTheme.green),
+        title: Text(w == null ? '体重' : '体重 ${w!.weightKg.toStringAsFixed(1)} kg'),
+        subtitle: Text(w == null
+            ? '记录今天的体重（可不用每天记）'
+            : '已记录 · 点按可修改'),
+        trailing: w == null
+            ? FilledButton(
+                onPressed: () => _editWeight(),
+                child: const Text('记录'))
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    onPressed: () => _editWeight(),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    onPressed: () => _removeWeight(),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Future<void> _editWeight() async {
+    final controller = TextEditingController(
+        text: _weight?.weightKg.toStringAsFixed(1) ?? '');
+    final kg = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('记录体重'),
+        content: TextField(
+          controller: controller,
+          keyboardType:
+              const TextInputType.numberWithOptions(decimal: true),
+          autofocus: true,
+          decoration: const InputDecoration(
+              hintText: '如 65.5', suffixText: 'kg'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消')),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(ctx, double.tryParse(controller.text)),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (kg != null && kg > 0 && kg < 500) {
+      await context
+          .read<AppState>()
+          .saveWeightForDate(widget.date, kg);
+      await _reload();
+    }
+  }
+
+  Future<void> _removeWeight() async {
+    final id = _weight?.id;
+    if (id == null) return;
+    await context.read<AppState>().removeWeight(id);
     await _reload();
   }
 
