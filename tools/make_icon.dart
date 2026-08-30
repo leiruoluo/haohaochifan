@@ -255,31 +255,66 @@ Uint8List _resize(Uint8List src, int sw, int sh, int dw, int dh) {
   return out;
 }
 
-// ---------------- ICO ----------------
-Uint8List _ico(Map<int, Uint8List> pngs) {
-  final sizes = pngs.keys.toList()..sort((a, b) => b.compareTo(a));
+// ---------------- ICO（DIB/BMP 条目，兼容 rc.exe）----------------
+// 注意：ICO/DIB 所有多字节字段均为小端序（LE）
+
+/// 生成单个尺寸的 DIB 图像数据（BITMAPINFOHEADER + BGRA + AND 掩码）
+Uint8List _dibImage(Uint8List rgba, int size) {
   final out = BytesBuilder();
-  out.add([0, 0, 1, 0]);
-  out.add([(sizes.length >> 8) & 0xFF, sizes.length & 0xFF]);
-  var offset = 6 + 16 * sizes.length;
-  final entries = <List<int>>[];
+  void u32le(int v) => out.add([
+        v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF
+      ]);
+  void u16le(int v) => out.add([v & 0xFF, (v >> 8) & 0xFF]);
+  // BITMAPINFOHEADER（40 字节，全小端）
+  u32le(40); // biSize
+  u32le(size); // biWidth
+  u32le(size * 2); // biHeight（XOR + AND）
+  u16le(1); // biPlanes
+  u16le(32); // biBitCount
+  u32le(0); // biCompression = BI_RGB
+  u32le(0); // biSizeImage
+  u32le(0); u32le(0); u32le(0); u32le(0); // 分辨率与调色板相关字段
+  // XOR 数据：自下而上 BGRA
+  for (var y = size - 1; y >= 0; y--) {
+    for (var x = 0; x < size; x++) {
+      final i = (y * size + x) * 4;
+      out.add([rgba[i + 2], rgba[i + 1], rgba[i], rgba[i + 3]]); // B G R A
+    }
+  }
+  // AND 掩码：1bpp，自下而上，行按 32 位对齐，全 0（不透明）
+  final rowBytes = ((size + 31) ~/ 32) * 4;
+  final maskRow = List<int>.filled(rowBytes, 0);
+  for (var y = size - 1; y >= 0; y--) {
+    out.add(maskRow);
+  }
+  return out.toBytes();
+}
+
+Uint8List _icoDib(Map<int, Uint8List> rgbas) {
+  final sizes = rgbas.keys.toList()..sort((a, b) => b.compareTo(a));
+  final blobs = <int, Uint8List>{};
   for (final s in sizes) {
-    final data = pngs[s]!;
+    blobs[s] = _dibImage(rgbas[s]!, s);
+  }
+  final out = BytesBuilder();
+  // ICONDIR：保留(2)=0，类型(2)=1，数量(2) 小端
+  out.add([0, 0, 1, 0, sizes.length & 0xFF, (sizes.length >> 8) & 0xFF]);
+  var offset = 6 + 16 * sizes.length;
+  for (final s in sizes) {
+    final data = blobs[s]!;
     final b = s >= 256 ? 0 : s;
-    entries.add([
-      b, b, 0, 0, 1, 0, 32, 0,
-      (data.length >> 24) & 0xFF, (data.length >> 16) & 0xFF,
-      (data.length >> 8) & 0xFF, data.length & 0xFF,
-      (offset >> 24) & 0xFF, (offset >> 16) & 0xFF,
-      (offset >> 8) & 0xFF, offset & 0xFF,
+    out.add([
+      b, b, 0, 0, // 宽、高、颜色数、保留
+      1, 0, 32, 0, // 平面数、位深（LE）
+      data.length & 0xFF, (data.length >> 8) & 0xFF,
+      (data.length >> 16) & 0xFF, (data.length >> 24) & 0xFF,
+      offset & 0xFF, (offset >> 8) & 0xFF,
+      (offset >> 16) & 0xFF, (offset >> 24) & 0xFF,
     ]);
     offset += data.length;
   }
-  for (final e in entries) {
-    out.add(e);
-  }
   for (final s in sizes) {
-    out.add(pngs[s]!);
+    out.add(blobs[s]!);
   }
   return out.toBytes();
 }
@@ -318,15 +353,14 @@ void main() {
     stdout.writeln('$name.png ($size) 完成');
   });
 
-  // ICO：16/32/48/64/128/256
-  final icoPngsAll = <int, Uint8List>{};
+  // ICO：16/32/48/64/128/256（DIB 条目，兼容 rc.exe）
+  final icoRaw = <int, Uint8List>{};
   for (final s in [256, 128, 64, 48, 32, 16]) {
-    final small = _resize(master, S, S, s, s);
-    icoPngsAll[s] = _png(small, s, s);
+    icoRaw[s] = _resize(master, S, S, s, s);
   }
   File('${outDir.path}/app_icon.ico')
-      .writeAsBytesSync(_ico(icoPngsAll));
-  stdout.writeln('app_icon.ico 完成');
+      .writeAsBytesSync(_icoDib(icoRaw));
+  stdout.writeln('app_icon.ico (DIB) 完成');
 
   // Android mipmaps 直接写入工程目录
   const androidDir = 'android/app/src/main/res';
@@ -357,11 +391,11 @@ void main() {
   });
   stdout.writeln('Web 图标完成');
 
-  // Windows ICO
+  // Windows ICO（DIB 条目，rc.exe 兼容）
   final winIco = File(
       '${Directory.current.path}/windows/runner/resources/app_icon.ico');
   winIco.parent.createSync(recursive: true);
-  winIco.writeAsBytesSync(_ico(icoPngsAll));
-  stdout.writeln('Windows app_icon.ico 完成');
+  winIco.writeAsBytesSync(_icoDib(icoRaw));
+  stdout.writeln('Windows app_icon.ico (DIB) 完成');
   stdout.writeln('ALL ICON OUTPUT DONE');
 }
