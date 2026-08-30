@@ -36,5 +36,14 @@ target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
+# 运行时依赖：sqlite3.dll（本地 SQLite，随 exe 分发）
+if(EXISTS "${PROJECT_SOURCE_DIR}/../../sqlite3.dll")
+  add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${PROJECT_SOURCE_DIR}/../../sqlite3.dll"
+      "$<TARGET_FILE_DIR:${BINARY_NAME}>/sqlite3.dll"
+    COMMENT "Copying sqlite3.dll")
+endif()
+
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
