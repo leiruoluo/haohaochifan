@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>好好吃饭 · 使用说明书</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; max-width: 680px; margin: 0 auto; padding: 20px 16px 60px; color: #3E2C20; line-height: 1.7; background: #FFF8F0; }
+  h1 { color: #E8743B; font-size: 24px; text-align: center; }
+  .sub { text-align: center; color: #8A7363; font-size: 14px; margin-top: -8px; }
+  h2 { font-size: 18px; border-left: 4px solid #E8743B; padding-left: 10px; margin-top: 32px; }
+  .box { background: #fff; border-radius: 14px; padding: 14px 16px; margin: 10px 0; box-shadow: 0 1px 4px rgba(62,44,32,.08); }
+  .step { display: flex; margin: 10px 0; }
+  .num { flex: 0 0 26px; height: 26px; border-radius: 50%; background: #E8743B; color: #fff; text-align: center; line-height: 26px; font-weight: 700; font-size: 14px; margin-right: 10px; }
+  .step b { color: #E8743B; }
+  .url { background: #E8743B; color: #fff; padding: 10px 14px; border-radius: 10px; text-align: center; font-size: 16px; font-weight: 700; word-break: break-all; }
+  .tip { background: #FFF3DC; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #8a6d3b; margin: 8px 0; }
+  .warn { background: #FDE8E8; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #b34a4a; margin: 8px 0; }
+  .tag { display: inline-block; background: #E8743B22; color: #E8743B; border-radius: 6px; padding: 1px 8px; font-size: 13px; font-weight: 700; margin-right: 6px; }
+  .small { font-size: 12px; color: #8A7363; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; }
+  td { border: 1px solid #f0e2d4; padding: 8px 10px; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>🍚 好好吃饭</h1>
+<p class="sub">为身材管理而生的饮食记录工具 · v1.0.0</p>
+
+<h2>📱 我是 iPhone</h2>
+<div class="box">
+  <div class="step"><div class="num">1</div><div>用 <b>Safari 浏览器</b>打开下面这个地址（可让发你链接的人直接发给你，点开即可）：</div></div>
+  <div class="url">https://leiruoluo.github.io/haohaochifan/</div>
+  <div class="step"><div class="num">2</div><div>打开后，点屏幕底部的<b>「分享」按钮</b>（方框带向上箭头）</div></div>
+  <div class="step"><div class="num">3</div><div>往下滑，点<b>「添加到主屏幕」</b></div></div>
+  <div class="step"><div class="num">4</div><div>点右上角<b>「添加」</b>，桌面就会出现一个<b>橙色碗图标</b>，以后点它就能用，和 App 一样！</div></div>
+  <div class="tip">💡 首次打开会请求「通知权限」，点允许，就能收到吃饭/喝水/结算提醒。</div>
+</div>
+
+<h2>🤖 我是安卓手机</h2>
+<div class="box">
+  <div class="step"><div class="num">1</div><div>收到别人发你的安装文件（名字类似 <b>haochaochifan-android-v1.0.0.apk</b>），点它开始安装</div></div>
+  <div class="step"><div class="num">2</div><div>如果提示「不允许安装未知来源应用」，跟着提示去设置里打开「允许安装」（不同品牌路径不同，一般是：设置 → 安全 → 更多安全设置 → 安装外部来源应用，找到微信/QQ 允许即可）</div></div>
+  <div class="step"><div class="num">3</div><div>安装完成，桌面点<b>橙色碗图标</b>打开</div></div>
+  <div class="warn">⚠️ 苹果手机不能安装这个文件，苹果用户请看上面的「我是 iPhone」。</div>
+</div>
+
+<h2>💻 我是电脑（Windows）</h2>
+<div class="box">
+  <div class="step"><div class="num">1</div><div>收到安装包（名字类似 <b>haochaochifan-setup-1.0.0.exe</b>），<b>双击</b>它</div></div>
+  <div class="step"><div class="num">2</div><div>如果弹出蓝色提示「Windows 已保护你的电脑」→ 点<b>「更多信息」</b> → 点<b>「仍要运行」</b></div></div>
+  <div class="step"><div class="num">3</div><div>按提示点「下一步 → 安装」，装完桌面就有<b>橙色碗图标</b>，双击使用</div></div>
+  <div class="tip">💡 电脑版记录的数据存在电脑本地；想和手机互通，见文末「多设备互通」。</div>
+</div>
+
+<h2>✍️ 第一次打开怎么设置</h2>
+<div class="box">
+  <div class="step"><div class="num">1</div><div>第一次打开会进入引导页，依次填：<b>性别、年龄、身高、体重</b> → 下一步</div></div>
+  <div class="step"><div class="num">2</div><div>选<b>日常活动量</b>（久坐/轻度/中度/高度）和<b>目标</b>（减脂/维持/增肌）→ 下一步</div></div>
+  <div class="step"><div class="num">3</div><div>设<b>理想热量缺口</b>（减脂通常 -300 到 -400，可不改）→ 点「开始使用」</div></div>
+  <div class="tip">💡 这些设置以后都能在「设置」里改。</div>
+</div>
+
+<h2>📝 日常怎么记（30 秒学会）</h2>
+<div class="box">
+  <div class="step"><div class="num">1</div><div>打开 App → 看到<b>日历</b>，点<b>今天</b>的日期</div></div>
+  <div class="step"><div class="num">2</div><div>点「<b>添加餐次</b>」选早餐/午餐/晚餐，再点「<b>添加到早餐</b>」</div></div>
+  <div class="step"><div class="num">3</div><div>搜索食物（比如搜「米饭」「鸡胸肉」），选好后填份量（克/碗/个），点「确认添加」</div></div>
+  <div class="step"><div class="num">4</div><div>顺手记<b>喝水</b>（点 +100/+250/+500ml）、<b>体重</b>（可选）、<b>运动</b>（选运动+时长）</div></div>
+  <div class="step"><div class="num">5</div><div>页面顶部<b>实时显示</b>：摄入、消耗、缺口/盈余、是否达标。点右上角「<b>结算</b>」看完整明细</div></div>
+  <div class="tip">💡 记完自动算热量，不用自己按计算器；晚上 23:30 还会提醒你结算。</div>
+</div>
+
+<h2>📊 看看统计</h2>
+<div class="box">
+  底部导航点「<b>统计</b>」：<b>月统计</b>看每天的摄入/消耗折线、缺口折线、这个月吃过什么最多次；切到「年」看全年总结。
+</div>
+
+<h2>❓ 常见问题</h2>
+<div class="box">
+<table>
+  <tr><td><b>提醒不弹？</b></td><td>安卓：手机设置里把「好好吃饭」加入<b>电池白名单</b>（设置→应用→好好吃饭→电池→不受限制）。苹果网页版：允许通知后一般正常。</td></tr>
+  <tr><td><b>数据存哪？</b></td><td>全部存在<b>你自己设备上</b>，不联网上传，别人看不到。</td></tr>
+  <tr><td><b>换手机怕丢？</b></td><td>设置 → 数据备份 → 导出（生成一个文件），新手机装好后再「导入」即可。</td></tr>
+  <tr><td><b>电脑和手机想互通？</b></td><td>见下「多设备互通」。</td></tr>
+  <tr><td><b>热量准吗？</b></td><td>食物数据来自《中国食物成分表》公开数据（近似值），消耗按公式估算，<b>仅供参考，不是医疗建议</b>。</td></tr>
+</table>
+</div>
+
+<h2>🔗 多设备互通（手机 ↔ 电脑）</h2>
+<div class="box">
+  <div class="step"><div class="num">1</div><div>电脑打开 App → 「<b>设置</b>」→「局域网同步」→ 点「<b>开启同步服务</b>」，记下屏幕上的 <b>IP 地址和 4 位配对码</b></div></div>
+  <div class="step"><div class="num">2</div><div>手机连<b>同一个 WiFi</b> → 手机 App「设置」→「手机端：与电脑同步」→ 输入电脑的 IP 和配对码 → 开始同步</div></div>
+  <div class="step"><div class="num">3</div><div>两边数据合并到一起，以后修改任一端，再同步一次即可</div></div>
+  <div class="warn">⚠️ 手机和电脑必须连同一个 WiFi；电脑端需保持同步服务开启。</div>
+</div>
+
+<p class="small" style="text-align:center; margin-top:30px;">好好吃饭 v1.0.0 · 作者：星燃 · 数据存本地，无账号无广告<br>有问题找发你链接的人，或到「设置 → 关于」查看说明</p>
+</body>
+</html>
