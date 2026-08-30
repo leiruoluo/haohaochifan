@@ -12,7 +12,8 @@
 | ⚖️ 结算 | 摄入 vs 消耗（BMR×活动系数 + 运动 MET）→ 缺口/盈余；**实时计算**，任何数据变化立即重算；对比自定义理想缺口判定达标；23:30 提醒 |
 | 📊 统计 | 月：摄入/消耗双折线、缺口/盈余折线（含理想缺口参考线）、食物次数榜、饮水达标、达标天数；年：汇总卡、月度对比、体重趋势、食物 TOP10 |
 | 📖 菜谱 | 内置 **176 种常见中国食物**（《中国食物成分表》第6版数据，含健身常用项）+ 6 道示例菜肴；支持自定义食物、单位换算、组合菜肴（多食材自动汇总营养） |
-| 📝 计划 | 按天/模板规划每餐，条目可复制，一键导入日历当天记录 |
+| 📝 计划 | 按天/模板规划每餐，条目可复制；日历当天显示"今日计划"参考卡，一键导入当天记录 |
+| ⚖️ 体重 | 当日详情页记录/修改/删除体重（无需每天记），月/年趋势图 |
 | 💧 饮水 | 每日目标（默认 1500ml 可改），进度展示 |
 | 🏋️ 运动 | 内置 24 种运动（MET 估算），支持手动输入消耗 |
 | 🔔 提醒 | 三餐/喝水/结算提醒（Android 通知 + Windows 应用内） |
@@ -46,9 +47,12 @@ Windows 安装包：安装 [Inno Setup 6](https://jrsoftware.org/isdl.php)，编
 > ⚠️ 正式对外发布前请重新生成密钥并妥善保管；若仓库公开，请改用 GitHub Secrets 管理口令。
 
 ### GitHub Pages 部署
-仓库已含 `.github/workflows/build-deploy.yml`：推送到 `main` 自动构建 Web 并部署 Pages、同时产出 APK 构件。
-- 仓库 Settings → Pages → Source 选 **GitHub Actions**
-- 部署地址：`https://<用户名>.github.io/<仓库名>/`（iPhone 可用 Safari 打开并"添加到主屏幕"安装为 PWA）
+仓库已含 `.github/workflows/build-deploy.yml`：推送到 `main` 自动完成三件事——
+- 构建 Web 并部署到 Pages
+- 产出 Android APK 构件
+- 在 windows 运行器上构建 **Windows 安装包**（`haohaochifan-setup-1.0.0.exe`，含 sqlite3.dll，无需本机装 VS）
+
+仓库 Settings → Pages → Source 选 **GitHub Actions**，部署地址：`https://<用户名>.github.io/<仓库名>/`（iPhone 用 Safari 打开并"添加到主屏幕"即可安装为 PWA）。
 
 ## 数据与免责声明
 

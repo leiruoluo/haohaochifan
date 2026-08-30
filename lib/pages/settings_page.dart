@@ -428,7 +428,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _phoneSync(BuildContext context) async {
     final hostCtrl = TextEditingController(text: _lanIp);
     final codeCtrl = TextEditingController();
-    await showDialog(
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('与电脑同步'),
@@ -451,24 +451,39 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              final state = context.read<AppState>();
-              state.syncWithPc(hostCtrl.text.trim(), codeCtrl.text.trim());
-            },
-            child: const Text('开始同步'),
-          ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('开始同步')),
         ],
       ),
     );
-    // 显示同步结果
-    await Future.delayed(const Duration(seconds: 1));
+    if (ok != true || !context.mounted) return;
+
     final state = context.read<AppState>();
-    if (state.syncMessage != null && context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(state.syncMessage!)));
+    // 进度对话框（等待同步完成）
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: SizedBox(
+          height: 80,
+          child: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Expanded(child: Text('正在与电脑同步…\n请确认电脑端已开启同步服务')),
+            ],
+          ),
+        ),
+      ),
+    );
+    await state.syncWithPc(hostCtrl.text.trim(), codeCtrl.text.trim());
+    if (context.mounted) Navigator.of(context).pop(); // 关闭进度框
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(state.syncMessage ?? '同步完成 ✅')));
     }
   }
 
