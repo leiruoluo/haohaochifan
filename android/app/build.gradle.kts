@@ -18,9 +18,10 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file("release.keystore")
-            storePassword = "haohaochifan2026"
+            // CI 从 Secrets 读口令；本机构建回退到默认口令
+            storePassword = System.getenv("KEYSTORE_PASS") ?: "haohaochifan2026"
             keyAlias = "haohaochifan"
-            keyPassword = "haohaochifan2026"
+            keyPassword = System.getenv("KEYSTORE_PASS") ?: "haohaochifan2026"
         }
     }
 
