@@ -1,4 +1,4 @@
-; 好好吃饭 v1.0.0 Windows 安装脚本（Inno Setup 6）
+﻿; 好好吃饭 v1.0.0 Windows 安装脚本（Inno Setup 6）
 ; 用法：先 flutter build windows --release，再用 Inno Setup 编译本文件
 #define MyAppName "好好吃饭"
 #define MyAppVersion "1.0.0"
