@@ -47,6 +47,45 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: warn
 
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build Windows desktop
+        run: flutter build windows --release
+
+      - name: Bundle sqlite3.dll (运行时依赖)
+        run: Copy-Item sqlite3.dll build\windows\x64\runner\Release\
+        shell: pwsh
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer (exe 安装包)
+        run: |
+          $iscc = @('C:\Program Files (x86)\Inno Setup 6\ISCC.exe','C:\Program Files\Inno Setup 6\ISCC.exe') | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw 'ISCC.exe not found' }
+          & $iscc tools\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup 编译失败' }
+        shell: pwsh
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: haohaochifan-windows-installer
+          path: dist/haohaochifan-setup-1.0.0.exe
+          if-no-files-found: warn
+
   deploy-pages:
     needs: build-web-and-apk
     runs-on: ubuntu-latest
