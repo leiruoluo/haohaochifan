@@ -250,6 +250,8 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<PlanDay?> planForDate(DateTime d) => repo.getPlanForDate(d);
+
   Future<void> upsertPlan(PlanDay p) async {
     await repo.upsertPlan(p);
     await reloadPlans();

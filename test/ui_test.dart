@@ -8,6 +8,7 @@ import 'package:haohaochifan/app.dart';
 import 'package:haohaochifan/db/database.dart' as dbmod;
 import 'package:haohaochifan/db/repository.dart';
 import 'package:haohaochifan/models/log.dart';
+import 'package:haohaochifan/models/plan.dart';
 import 'package:haohaochifan/models/profile.dart';
 import 'package:haohaochifan/pages/day_detail_page.dart';
 import 'package:haohaochifan/pages/onboarding_page.dart';
@@ -79,6 +80,31 @@ void main() {
       await state.updateWater(day, 1000);
       await state.addExercise(day, ExerciseLog(
           id: 'x1', exerciseName: '慢跑（8km/h）', minutes: 30, met: 8.0));
+      // 绑定一份当日计划（验证计划参考卡片）
+      await state.upsertPlan(PlanDay(
+        id: 'p1',
+        name: '减脂日',
+        date: day,
+        meals: [
+          PlanMeal(id: 'pm1', mealName: '晚餐', items: [
+            PlanItem(
+                id: 'pi1',
+                refId: 'f001',
+                isDish: false,
+                name: '鸡胸脯肉',
+                amount: 150,
+                unitName: '克'),
+            PlanItem(
+                id: 'pi2',
+                refId: 'f001',
+                isDish: false,
+                name: '西兰花',
+                amount: 200,
+                unitName: '克'),
+          ]),
+        ],
+        updatedAt: DateTime(2026, 8, 29),
+      ));
     });
     await tester.pumpWidget(
       ChangeNotifierProvider.value(

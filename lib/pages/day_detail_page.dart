@@ -6,6 +6,7 @@ import '../engine/settlement.dart';
 import '../engine/slogan.dart';
 import '../models/exercise.dart' show WeightRecord;
 import '../models/log.dart';
+import '../models/plan.dart';
 import '../models/profile.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
@@ -27,6 +28,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
   DaySettlement? _s;
   String _slogan = '';
   WeightRecord? _weight;
+  PlanDay? _plan;
 
   @override
   void initState() {
@@ -40,11 +42,13 @@ class _DayDetailPageState extends State<DayDetailPage> {
     final s = await state.settlement(widget.date);
     final profile = state.profile ?? const UserProfile();
     final weight = await state.weightForDate(widget.date);
+    final plan = await state.planForDate(widget.date);
     if (mounted) {
       setState(() {
         _log = log;
         _s = s;
         _weight = weight;
+        _plan = plan;
         _slogan = pickSlogan(
             profile: profile, s: s, dayOfYear: widget.date.difference(DateTime(widget.date.year)).inDays);
       });
@@ -79,6 +83,7 @@ class _DayDetailPageState extends State<DayDetailPage> {
           _summaryCard(s),
           _waterCard(log, s),
           _weightCard(log),
+          if (_plan != null) _planCard(),
           ..._mealCards(log),
           _addMealButton(),
           _exerciseCard(log, s),
@@ -538,6 +543,71 @@ class _DayDetailPageState extends State<DayDetailPage> {
     final id = _weight?.id;
     if (id == null) return;
     await context.read<AppState>().removeWeight(id);
+    await _reload();
+  }
+
+  /// 当日计划参考卡片：显示绑定到该日期的计划，可一键导入记录
+  Widget _planCard() {
+    final plan = _plan!;
+    final itemCount =
+        plan.meals.fold<int>(0, (sum, m) => sum + m.items.length);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.event_note_outlined,
+                    size: 18, color: AppTheme.primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text('今日计划${plan.name.isEmpty ? '' : '：${plan.name}'}',
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                Text('$itemCount 个条目',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.inkLight)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            for (final m in plan.meals)
+              if (m.items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(
+                    '${m.mealName}：${m.items.map((i) => '${i.name}×${_fmtAmount(i.amount)}${i.unitName}').join('、')}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, color: AppTheme.inkLight),
+                  ),
+                ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _importPlan(),
+                    icon: const Icon(Icons.event_available_outlined, size: 16),
+                    label: const Text('一键导入当天记录'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _importPlan() async {
+    final plan = _plan;
+    if (plan == null) return;
+    await context.read<AppState>().copyPlanToDay(plan, widget.date);
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('计划已导入到今天的记录 ✅')));
     await _reload();
   }
 
