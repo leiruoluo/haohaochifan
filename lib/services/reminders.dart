@@ -28,14 +28,12 @@ class ReminderService {
   }
 
   static Future<void> requestPermissions() async {
+    // 仅请求通知权限（Android 13+）；精确闹钟非必需（使用 inexact 模式），
+    // 避免启动时跳转系统设置页
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestExactAlarmsPermission();
   }
 
   /// 按档案设置安排每日提醒；先清空再重建（幂等）

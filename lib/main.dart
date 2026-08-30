@@ -12,6 +12,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('zh_CN');
   await ReminderService.init();
+  // Android 13+ 需要运行时通知权限，提醒功能才会生效
+  await ReminderService.requestPermissions();
   final state = await createAppState();
   runApp(AppRoot(state: state));
 }
