@@ -32,6 +32,11 @@
 ### 环境
 - Flutter SDK 3.47+（Windows 桌面构建需 VS 2022 Build Tools，Android 构建需 JDK 17 + Android SDK）
 
+### 中国大陆网络（必读）
+首次构建前，把仓库内 `tools\gradle-init.gradle` 复制到 `C:\Users\<你>\ .gradle\init.gradle`
+（把 Google Maven 换成阿里云镜像，否则 Android 构建会卡在 dl.google.com）。
+之后用 `tools\build_all.ps1` 一键构建（自动配置 pub/存储镜像）。
+
 ### 命令
 ```bash
 flutter pub get
