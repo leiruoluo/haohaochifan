@@ -90,12 +90,15 @@ class _SettingsPageState extends State<SettingsPage> {
             value: p.remindWater,
             onChanged: (v) => _saveProfile(p.copyWith(remindWater: v)),
           ),
-          SwitchListTile(
-            secondary: const Icon(Icons.calculate_outlined),
+          ListTile(
+            leading: const Icon(Icons.calculate_outlined),
             title: const Text('结算提醒'),
-            subtitle: Text('每日 ${p.settleHour}:${p.settleMinute.toString().padLeft(2, '0')}（可点击修改）'),
-            value: p.remindSettle,
-            onChanged: (v) => _saveProfile(p.copyWith(remindSettle: v)),
+            subtitle: Text('每日 ${p.settleHour}:${p.settleMinute.toString().padLeft(2, '0')}（点击修改时间）'),
+            trailing: Switch(
+              value: p.remindSettle,
+              onChanged: (v) => _saveProfile(p.copyWith(remindSettle: v)),
+            ),
+            onTap: () => _editSettleTime(context),
           ),
         ]),
         _section('激励 slogan', [
@@ -347,6 +350,22 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _editSettleTime(BuildContext context) async {
+    final p = context.read<AppState>().profile ?? const UserProfile();
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: p.settleHour, minute: p.settleMinute),
+      helpText: '选择每日结算提醒时间',
+    );
+    if (picked != null) {
+      await _saveProfile(p.copyWith(
+        settleHour: picked.hour,
+        settleMinute: picked.minute,
+        updatedAt: DateTime.now(),
+      ));
+    }
   }
 
   Future<void> _editWater(BuildContext context) async {
