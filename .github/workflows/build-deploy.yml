@@ -116,12 +116,17 @@ jobs:
         run: choco install innosetup -y --no-progress
 
       - name: Build installer (exe 安装包)
+        shell: pwsh
         run: |
           $iscc = @('C:\Program Files (x86)\Inno Setup 6\ISCC.exe','C:\Program Files\Inno Setup 6\ISCC.exe') | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $iscc) { throw 'ISCC.exe not found' }
-          & $iscc tools\installer.iss
-          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup 编译失败' }
-        shell: pwsh
+          $log = & $iscc tools\installer.iss 2>&1
+          $log | Select-Object -Last 40
+          if ($LASTEXITCODE -ne 0) {
+            $tail = $log | Select-Object -Last 25 | Out-String
+            Write-Error "ISCC 编译失败，日志尾部：`n$tail"
+            exit 1
+          }
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
