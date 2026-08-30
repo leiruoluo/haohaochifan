@@ -13,8 +13,9 @@ dependencies:
   # 数据库
   sqflite: ^2.4.0
   sqflite_common: ^2.5.0
-  sqflite_common_ffi: 2.3.6
-  sqlite3: 2.7.6
+  # 固定 sqlite3 2.4.6：与 sqflite_common_ffi_web 官方 setup 下载的 wasm 精确匹配
+  sqflite_common_ffi: 2.3.5
+  sqlite3: 2.4.6
   sqflite_common_ffi_web: ^0.4.0
   path: ^1.9.0
   path_provider: ^2.1.0
