@@ -4,6 +4,7 @@ import 'package:haohaochifan/engine/settlement.dart';
 import 'package:haohaochifan/models/dish.dart';
 import 'package:haohaochifan/models/food.dart';
 import 'package:haohaochifan/models/log.dart';
+import 'package:haohaochifan/models/plan.dart';
 import 'package:haohaochifan/models/profile.dart';
 import 'package:haohaochifan/sync/merge.dart';
 
@@ -138,6 +139,40 @@ void main() {
       );
       final nut = dish.computeNutrition({'r1': rice, 'c1': chicken});
       expect(nut.energyKcal, closeTo(116 * 1.5 + 118, 0.01));
+    });
+
+    test('菜肴做法步骤序列化', () {
+      final dish = Dish(
+        id: 'd2',
+        name: '番茄炒蛋',
+        steps: const ['番茄切块', '热锅倒油', '翻炒出锅'],
+        ingredients: const [DishIngredient('r1', 150)],
+      );
+      final restored = Dish.fromMap(dish.toMap());
+      expect(restored.steps, ['番茄切块', '热锅倒油', '翻炒出锅']);
+      expect(restored.name, '番茄炒蛋');
+    });
+
+    test('计划摄入营养（食谱对比基准）', () {
+      final plan = PlanDay(
+        id: 'p1',
+        name: '减脂日',
+        meals: [
+          PlanMeal(id: 'pm1', mealName: '晚餐', items: const [
+            PlanItem(
+                id: 'pi1',
+                refId: 'c1',
+                isDish: false,
+                name: '鸡胸肉',
+                amount: 150,
+                unitName: '克'),
+          ]),
+        ],
+      );
+      final nut = planNutrition(plan, {'c1': chicken}, const {});
+      // 鸡胸肉 118 kcal/100g × 1.5 = 177
+      expect(nut.energyKcal, closeTo(177, 0.01));
+      expect(nut.proteinG, closeTo(24.6 * 1.5, 0.01));
     });
   });
 

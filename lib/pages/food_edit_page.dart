@@ -86,8 +86,20 @@ class _FoodEditPageState extends State<FoodEditPage> {
             onChanged: (v) => setState(() => _liquid = v),
           ),
           const SizedBox(height: 8),
-          const Text('每 100 克/毫升营养成分',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          Row(
+            children: [
+              const Text('每 100 克/毫升营养成分',
+                  style:
+                      TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              FilledButton(
+                onPressed: _save,
+                style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact),
+                child: const Text('保存'),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           _nutField('能量（kcal）', _nut.energy),
           _nutField('蛋白质（g）', _nut.protein),
@@ -139,11 +151,6 @@ class _FoodEditPageState extends State<FoodEditPage> {
                   ),
                 ],
               )),
-          const SizedBox(height: 20),
-          FilledButton(
-            onPressed: _save,
-            child: const Text('保存'),
-          ),
         ],
       ),
     );

@@ -36,6 +36,10 @@ class UserProfile {
   final double idealDeficitKcal;
   /// 是否使用自定义理想缺口（否则按目标自动建议）
   final bool useCustomDeficit;
+  /// 自定义基础代谢（kcal/天）；为空表示使用公式计算值
+  final double? customBmrKcal;
+  /// 是否启用自定义基础代谢
+  final bool useCustomBmr;
   final double waterTargetMl;
   final String slogan;
   /// 每日自动结算提醒时间（24小时制）
@@ -58,6 +62,8 @@ class UserProfile {
     this.goal = GoalType.cut,
     this.idealDeficitKcal = -300,
     this.useCustomDeficit = true,
+    this.customBmrKcal,
+    this.useCustomBmr = false,
     this.waterTargetMl = 1500,
     this.slogan = '',
     this.settleHour = 23,
@@ -98,6 +104,8 @@ class UserProfile {
     GoalType? goal,
     double? idealDeficitKcal,
     bool? useCustomDeficit,
+    double? customBmrKcal,
+    bool? useCustomBmr,
     double? waterTargetMl,
     String? slogan,
     int? settleHour,
@@ -118,6 +126,8 @@ class UserProfile {
       goal: goal ?? this.goal,
       idealDeficitKcal: idealDeficitKcal ?? this.idealDeficitKcal,
       useCustomDeficit: useCustomDeficit ?? this.useCustomDeficit,
+      customBmrKcal: customBmrKcal ?? this.customBmrKcal,
+      useCustomBmr: useCustomBmr ?? this.useCustomBmr,
       waterTargetMl: waterTargetMl ?? this.waterTargetMl,
       slogan: slogan ?? this.slogan,
       settleHour: settleHour ?? this.settleHour,
@@ -141,6 +151,8 @@ class UserProfile {
         'goal': goal.name,
         'ideal_deficit': idealDeficitKcal,
         'use_custom_deficit': useCustomDeficit ? 1 : 0,
+        'custom_bmr': customBmrKcal,
+        'use_custom_bmr': useCustomBmr ? 1 : 0,
         'water_target': waterTargetMl,
         'slogan': slogan,
         'settle_hour': settleHour,
@@ -165,6 +177,8 @@ class UserProfile {
             orElse: () => GoalType.cut),
         idealDeficitKcal: (m['ideal_deficit'] as num?)?.toDouble() ?? -300,
         useCustomDeficit: (m['use_custom_deficit'] as num? ?? 1) != 0,
+        customBmrKcal: (m['custom_bmr'] as num?)?.toDouble(),
+        useCustomBmr: (m['use_custom_bmr'] as num? ?? 0) != 0,
         waterTargetMl: (m['water_target'] as num?)?.toDouble() ?? 1500,
         slogan: (m['slogan'] as String?) ?? '',
         settleHour: (m['settle_hour'] as num?)?.toInt() ?? 23,

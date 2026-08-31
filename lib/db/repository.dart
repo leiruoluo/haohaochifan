@@ -98,6 +98,15 @@ class AppRepository {
     return PlanDay.fromMap(rows.first);
   }
 
+  /// 某天绑定的全部计划（可多个）
+  Future<List<PlanDay>> getPlansForDate(DateTime d) async {
+    final rows = await db.query('plans',
+        where: 'date = ? AND deleted = 0',
+        whereArgs: [dbmod.dayKey(d)],
+        orderBy: 'updated_at');
+    return rows.map(PlanDay.fromMap).toList();
+  }
+
   Future<void> upsertPlan(PlanDay p) async {
     await db.insert('plans', p.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
@@ -176,6 +185,41 @@ class AppRepository {
 
   Future<void> deleteWeight(String id) async {
     await db.delete('weights', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ---------- 最近吃过 ----------
+  Future<List<Map<String, Object?>>> getRecents({int limit = 30}) async {
+    return db.query('food_recent', orderBy: 'last_used DESC', limit: limit);
+  }
+
+  Future<void> upsertRecent(String refId, bool isDish) async {
+    await db.insert('food_recent', {
+      'ref_id': refId,
+      'is_dish': isDish ? 1 : 0,
+      'last_used': DateTime.now().millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> deleteRecent(String refId) async {
+    await db.delete('food_recent', where: 'ref_id = ?', whereArgs: [refId]);
+  }
+
+  /// 上下移动最近记录（delta=±1），通过重排 last_used 实现
+  Future<void> moveRecent(int index, int delta) async {
+    final rows = await getRecents();
+    if (index < 0 || index >= rows.length) return;
+    final newIndex = index + delta;
+    if (newIndex < 0 || newIndex >= rows.length) return;
+    final a = rows[index], b = rows[newIndex];
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      await txn.update('food_recent',
+          {'last_used': now + 1},
+          where: 'ref_id = ?', whereArgs: [a['ref_id']]);
+      await txn.update('food_recent',
+          {'last_used': now},
+          where: 'ref_id = ?', whereArgs: [b['ref_id']]);
+    });
   }
 
   // ---------- 全量导出 / 导入（备份与迁移） ----------

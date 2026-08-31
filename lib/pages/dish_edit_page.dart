@@ -19,6 +19,7 @@ class DishEditPage extends StatefulWidget {
 class _DishEditPageState extends State<DishEditPage> {
   late final TextEditingController _name;
   late final TextEditingController _note;
+  late final List<TextEditingController> _steps;
   late final List<_IngRow> _ings;
 
   bool get _isEdit => widget.dish != null;
@@ -29,6 +30,11 @@ class _DishEditPageState extends State<DishEditPage> {
     final d = widget.dish;
     _name = TextEditingController(text: d?.name ?? '');
     _note = TextEditingController(text: d?.note ?? '');
+    _steps = [
+      for (final s in (d?.steps ?? const <String>[]))
+        TextEditingController(text: s),
+    ];
+    if (_steps.isEmpty) _steps.add(TextEditingController());
     _ings = [
       for (final i in (d?.ingredients ?? const <DishIngredient>[]))
         _IngRow(i.foodId, i.grams),
@@ -39,6 +45,9 @@ class _DishEditPageState extends State<DishEditPage> {
   void dispose() {
     _name.dispose();
     _note.dispose();
+    for (final c in _steps) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -47,10 +56,29 @@ class _DishEditPageState extends State<DishEditPage> {
     final state = context.watch<AppState>();
     final foodMap = state.foodMap;
     var kcal = 0.0;
+    var protein = 0.0;
+    var fat = 0.0;
+    var carbs = 0.0;
+    var grams = 0.0;
     for (final r in _ings) {
       final f = foodMap[r.foodId];
-      if (f != null) kcal += f.per100.energyKcal * r.grams / 100;
+      if (f != null) {
+        kcal += f.per100.energyKcal * r.grams / 100;
+        protein += f.per100.proteinG * r.grams / 100;
+        fat += f.per100.fatG * r.grams / 100;
+        carbs += f.per100.carbsG * r.grams / 100;
+      }
+      grams += r.grams;
     }
+    // 每100克口径
+    final p100 = grams > 0
+        ? Nutrition(
+            energyKcal: kcal * 100 / grams,
+            proteinG: protein * 100 / grams,
+            fatG: fat * 100 / grams,
+            carbsG: carbs * 100 / grams,
+          )
+        : const Nutrition();
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEdit ? '编辑菜肴' : '添加菜肴'),
@@ -104,6 +132,71 @@ class _DishEditPageState extends State<DishEditPage> {
                 style: TextStyle(color: AppTheme.primary, fontSize: 13)),
             onTap: _addIngredient,
           ),
+          if (_ings.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3EA),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFF0D9C5)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('每 100 克营养成分（按食材自动计算）',
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text(
+                        '能量 ${p100.energyKcal.round()} kcal · 蛋白质 ${p100.proteinG.toStringAsFixed(1)}g · 脂肪 ${p100.fatG.toStringAsFixed(1)}g · 碳水 ${p100.carbsG.toStringAsFixed(1)}g',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.inkLight)),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Text('做法步骤',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              IconButton(
+                onPressed: () =>
+                    setState(() => _steps.add(TextEditingController())),
+                icon: const Icon(Icons.add_circle_outline),
+                tooltip: '添加步骤',
+              ),
+            ],
+          ),
+          ..._steps.asMap().entries.map((e) => Row(
+                children: [
+                  Text('${e.key + 1}.',
+                      style: const TextStyle(
+                          fontSize: 13, color: AppTheme.inkLight)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: TextField(
+                      controller: e.value,
+                      maxLines: null,
+                      decoration: const InputDecoration(
+                          hintText: '这一步怎么做…', isDense: true),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => setState(() {
+                      e.value.dispose();
+                      _steps.removeAt(e.key);
+                      if (_steps.isEmpty) {
+                        _steps.add(TextEditingController());
+                      }
+                    }),
+                  ),
+                ],
+              )),
           const SizedBox(height: 20),
           FilledButton(onPressed: _save, child: const Text('保存')),
         ],
@@ -171,6 +264,10 @@ class _DishEditPageState extends State<DishEditPage> {
       id: widget.dish?.id ?? genUuid(),
       name: name,
       note: _note.text.trim(),
+      steps: [
+        for (final c in _steps)
+          if (c.text.trim().isNotEmpty) c.text.trim(),
+      ],
       builtin: widget.dish?.builtin ?? false,
       ingredients: [for (final r in _ings) DishIngredient(r.foodId, r.grams)],
       updatedAt: DateTime.now(),

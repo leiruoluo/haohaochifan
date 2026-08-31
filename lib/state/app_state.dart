@@ -115,6 +115,10 @@ class AppState extends ChangeNotifier {
         id: genUuid(),
         name: m['name'] as String,
         ingredients: ings,
+        steps: ((m['steps'] as List?) ?? const [])
+            .map((s) => (s as String?) ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList(),
         builtin: true,
         updatedAt: DateTime.fromMillisecondsSinceEpoch(now),
       ));
@@ -209,7 +213,17 @@ class AppState extends ChangeNotifier {
       ));
     }
     await saveDayLog(log.copyWith(meals: meals));
+    // 记录到"最近吃过"
+    await repo.upsertRecent(entry.refId, entry.isDish);
   }
+
+  // ---------- 最近吃过 ----------
+  Future<List<Map<String, Object?>>> recents() => repo.getRecents();
+
+  Future<void> deleteRecent(String refId) => repo.deleteRecent(refId);
+
+  Future<void> moveRecent(int index, int delta) =>
+      repo.moveRecent(index, delta);
 
   Future<void> updateWater(DateTime d, double ml) async {
     final log = await dayLog(d);
@@ -252,6 +266,8 @@ class AppState extends ChangeNotifier {
 
   Future<PlanDay?> planForDate(DateTime d) => repo.getPlanForDate(d);
 
+  Future<List<PlanDay>> plansForDate(DateTime d) => repo.getPlansForDate(d);
+
   Future<void> upsertPlan(PlanDay p) async {
     await repo.upsertPlan(p);
     await reloadPlans();
@@ -262,33 +278,32 @@ class AppState extends ChangeNotifier {
     await reloadPlans();
   }
 
-  /// 把计划日的所有条目复制进某天的记录（同名餐次合并追加）
-  Future<void> copyPlanToDay(PlanDay plan, DateTime d) async {
-    final log = await dayLog(d);
-    final meals = [...log.meals];
-    for (final pm in plan.meals) {
-      final entries = pm.items
-          .map((i) => LogEntry(
-                id: genUuid(),
-                refId: i.refId,
-                isDish: i.isDish,
-                name: i.name,
-                amount: i.amount,
-                unitName: i.unitName,
-              ))
-          .toList();
-      final idx = meals.indexWhere((m) => m.mealName == pm.mealName);
-      if (idx >= 0) {
-        meals[idx] = MealLog(
-          id: meals[idx].id,
-          mealName: meals[idx].mealName,
-          entries: [...meals[idx].entries, ...entries],
-        );
-      } else {
-        meals.add(MealLog(id: genUuid(), mealName: pm.mealName, entries: entries));
-      }
+  /// 把计划绑定到某天作为独立计划（不填入当日饮食；当日饮食仍可自行记录）
+  /// 返回新生成的计划 id 列表
+  Future<List<String>> importPlansToDate(List<PlanDay> plans, DateTime d) async {
+    final ids = <String>[];
+    for (final p in plans) {
+      final copy = PlanDay(
+        id: genUuid(),
+        name: p.name,
+        date: dbmod.dayOnly(d),
+        meals: p.meals,
+        updatedAt: DateTime.now(),
+      );
+      await repo.upsertPlan(copy);
+      ids.add(copy.id);
     }
-    await saveDayLog(log.copyWith(meals: meals));
+    await reloadPlans();
+    return ids;
+  }
+
+  /// 计划总摄入（按食物/菜肴实时计算）
+  Future<Nutrition> planIntake(PlanDay plan) async {
+    final foods = await repo.getFoods();
+    final dishes = await repo.getDishes();
+    return planNutrition(plan,
+        {for (final f in foods) f.id: f},
+        {for (final d in dishes) d.id: d});
   }
 
   // ---------------- 统计 ----------------

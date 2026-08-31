@@ -1,4 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/cupertino.dart'
+    show showCupertinoModalPopup, CupertinoDatePicker, CupertinoDatePickerMode;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -75,6 +77,35 @@ class _StatsPageState extends State<StatsPage> {
     _load();
   }
 
+  /// 点击年月弹出轮盘选择器快速切换
+  Future<void> _pickYearMonth() async {
+    final now = DateTime.now();
+    final picked = await showCupertinoModalPopup<DateTime>(
+      context: context,
+      builder: (_) => Container(
+        height: 260,
+        color: Colors.white,
+        child: CupertinoDatePicker(
+          mode: CupertinoDatePickerMode.date,
+          initialDateTime: _anchor,
+          minimumDate: DateTime(now.year - 10, 1),
+          maximumDate: DateTime(now.year + 10, 12, 31),
+          onDateTimeChanged: (d) {
+            Navigator.of(context).pop(d);
+          },
+        ),
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _anchor = _yearly
+            ? DateTime(picked.year, 1)
+            : DateTime(picked.year, picked.month, 1);
+      });
+      _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -88,12 +119,15 @@ class _StatsPageState extends State<StatsPage> {
                   icon: const Icon(Icons.chevron_left)),
               Expanded(
                 child: Center(
-                  child: Text(
-                      _yearly
-                          ? '${_anchor.year}年'
-                          : '${_anchor.year}年${_anchor.month}月',
-                      style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.w700)),
+                  child: GestureDetector(
+                    onTap: _pickYearMonth,
+                    child: Text(
+                        _yearly
+                            ? '${_anchor.year}年'
+                            : '${_anchor.year}年${_anchor.month}月',
+                        style: const TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.w700)),
+                  ),
                 ),
               ),
               IconButton(
@@ -119,9 +153,17 @@ class _StatsPageState extends State<StatsPage> {
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 32),
-                  children: _yearly ? _yearlyCards() : _monthlyCards(),
+              : GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragEnd: (d) {
+                    if (d.primaryVelocity == null) return;
+                    if (d.primaryVelocity! < -150) _shift(1);
+                    if (d.primaryVelocity! > 150) _shift(-1);
+                  },
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 32),
+                    children: _yearly ? _yearlyCards() : _monthlyCards(),
+                  ),
                 ),
         ),
       ],
@@ -154,8 +196,7 @@ class _StatsPageState extends State<StatsPage> {
           foodCount.isEmpty
               ? const _EmptyHint('本月暂无食物记录')
               : _foodRankList(foodCount)),
-      if (_weights.isNotEmpty)
-        _card('体重趋势（kg）', _weightLine()),
+      _card('体重趋势（kg）', _weightChart()),
       if (_weights.isEmpty && _settlements.isEmpty)
         const _EmptyHint('本月还没有任何记录，先去日历记一笔吧 📝'),
     ];
@@ -283,7 +324,7 @@ class _StatsPageState extends State<StatsPage> {
         ),
       ),
       _card('每月日均摄入（kcal）', _monthlyBar(monthAvg, monthCnt)),
-      if (_weights.isNotEmpty) _card('全年体重趋势（kg）', _weightLine()),
+      _card('全年体重趋势（kg）', _weightChart()),
       _card('年度食物 / 菜肴 TOP10',
           foodCount.isEmpty
               ? const _EmptyHint('今年暂无食物记录')
@@ -440,33 +481,82 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  LineChart _weightLine() {
+  Widget _weightChart() {
+    // 少于 2 个点无法成线：空白区域（带边框），未输入体重时保持空白
+    if (_weights.length < 2) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE8DCCF), width: 1.2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.center,
+        child: _weights.isEmpty
+            ? const Text('暂无体重记录',
+                style: TextStyle(fontSize: 12, color: AppTheme.inkLight))
+            : Text('仅有 1 条体重记录，再多记一条即可生成趋势',
+                style: const TextStyle(
+                    fontSize: 12, color: AppTheme.inkLight)),
+      );
+    }
     final spots = [
       for (var i = 0; i < _weights.length; i++)
         FlSpot(i.toDouble(), _weights[i].weightKg),
     ];
-    return LineChart(
-      LineChartData(
-        minX: 0,
-        maxX: spots.isEmpty ? 1 : spots.length - 1.0,
-        gridData: const FlGridData(show: true, drawVerticalLine: false),
-        titlesData: const FlTitlesData(
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 42)),
-          bottomTitles: AxisTitles(
-              sideTitles: SideTitles(showTitles: false)),
-          topTitles: AxisTitles(),
-          rightTitles: AxisTitles(),
-        ),
-        borderData: FlBorderData(show: false),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: AppTheme.green,
-            barWidth: 2.4,
-            dotData: const FlDotData(show: true),
+    final maxX = spots.length - 1.0;
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.fromLTRB(6, 8, 12, 6),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFE8DCCF), width: 1.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: LineChart(
+        LineChartData(
+          minX: 0,
+          maxX: maxX,
+          gridData: const FlGridData(show: true, drawVerticalLine: false),
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 42,
+                    getTitlesWidget: (v, meta) => Text(
+                        v == v.roundToDouble() ? '${v.toInt()}' : '',
+                        style: const TextStyle(
+                            fontSize: 10, color: AppTheme.inkLight)))),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 20,
+                interval: (maxX / 6).ceilToDouble(),
+                getTitlesWidget: (v, meta) {
+                  final i = v.toInt().clamp(0, _weights.length - 1);
+                  final d = _weights[i].date;
+                  return Text('${d.month}/${d.day}',
+                      style: const TextStyle(
+                          fontSize: 10, color: AppTheme.inkLight));
+                },
+              ),
+            ),
+            topTitles: const AxisTitles(),
+            rightTitles: const AxisTitles(),
           ),
-        ],
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: AppTheme.green,
+              barWidth: 2.4,
+              dotData: const FlDotData(show: true),
+              belowBarData: BarAreaData(
+                show: true,
+                color: AppTheme.green.withValues(alpha: 0.08),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

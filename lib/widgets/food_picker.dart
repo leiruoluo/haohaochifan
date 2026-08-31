@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../models/dish.dart';
 import '../models/food.dart';
 import '../models/log.dart';
+import '../pages/dish_edit_page.dart';
+import '../pages/food_edit_page.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../util/uuid.dart';
@@ -30,35 +32,92 @@ class _FoodPickerSheet extends StatefulWidget {
 class _FoodPickerSheetState extends State<_FoodPickerSheet> {
   String _query = '';
   String _category = '全部';
+  List<Map<String, Object?>> _recents = [];
+  bool _multi = false;
+  final Set<String> _selected = {};
+
   static const _categories = [
     '全部', '主食', '肉蛋', '蔬菜', '水果', '奶制品', '饮品', '零食', '健身', '调味', '菜肴', '其他'
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadRecents();
+  }
+
+  Future<void> _loadRecents() async {
+    final r = await context.read<AppState>().recents();
+    if (mounted) setState(() => _recents = r);
+  }
+
+  Future<void> _deleteRecent(String refId) async {
+    await context.read<AppState>().deleteRecent(refId);
+    setState(() => _selected.remove(refId));
+    await _loadRecents();
+  }
+
+  Future<void> _moveRecent(int index, int delta) async {
+    await context.read<AppState>().moveRecent(index, delta);
+    await _loadRecents();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final recencyRank = <String, int>{
+      for (var i = 0; i < _recents.length; i++)
+        _recents[i]['ref_id'] as String: i,
+    };
+
     final foods = state.foods.where((f) {
       if (f.deleted) return false;
       if (_category != '全部' && f.category != _category) return false;
       if (_query.isNotEmpty && !f.name.contains(_query)) return false;
       return true;
-    }).toList();
+    }).toList()
+      ..sort((a, b) {
+        final ra = recencyRank[a.id], rb = recencyRank[b.id];
+        if (ra != null && rb != null) return ra.compareTo(rb);
+        if (ra != null) return -1;
+        if (rb != null) return 1;
+        return a.name.compareTo(b.name);
+      });
+
     final dishes = state.dishes.where((d) {
       if (d.deleted) return false;
       if (_category != '全部' && _category != '菜肴') return false;
       if (_query.isNotEmpty && !d.name.contains(_query)) return false;
       return true;
-    }).toList();
+    }).toList()
+      ..sort((a, b) {
+        final ra = recencyRank[a.id], rb = recencyRank[b.id];
+        if (ra != null && rb != null) return ra.compareTo(rb);
+        if (ra != null) return -1;
+        if (rb != null) return 1;
+        return a.name.compareTo(b.name);
+      });
+
+    final recentItems = <Widget>[];
+    for (final r in _recents) {
+      final refId = r['ref_id'] as String;
+      final isDish = (r['is_dish'] as num? ?? 0) != 0;
+      if (isDish) {
+        final d = state.dishMap[refId];
+        if (d == null || d.deleted) continue;
+        recentItems.add(_recentTile(state, d, true, recencyRank[refId] ?? 0));
+      } else {
+        final f = state.foodMap[refId];
+        if (f == null || f.deleted) continue;
+        recentItems.add(_recentTile(state, f, false, recencyRank[refId] ?? 0));
+      }
+    }
 
     return Padding(
-      padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.85,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) => Column(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.9,
+        child: Column(
           children: [
             const Padding(
               padding: EdgeInsets.all(12),
@@ -68,7 +127,6 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: TextField(
-                autofocus: false,
                 onChanged: (v) => setState(() => _query = v.trim()),
                 decoration: const InputDecoration(
                   hintText: '搜索食物名称…',
@@ -77,43 +135,77 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> {
                 ),
               ),
             ),
-            SizedBox(
-              height: 44,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                children: _categories
-                    .map((c) => Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ChoiceChip(
-                            label: Text(c),
-                            selected: _category == c,
-                            onSelected: (_) => setState(() => _category = c),
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ),
+            if (_multi)
+              _multiBar()
+            else
+              const SizedBox(height: 4),
             Expanded(
-              child: ListView(
-                controller: scrollController,
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (dishes.isNotEmpty) ...[
-                    const _GroupLabel('菜肴'),
-                    ...dishes.map((d) => _dishTile(state, d)),
-                  ],
-                  if (foods.isNotEmpty) ...[
-                    const _GroupLabel('食物'),
-                    ...foods.map((f) => _foodTile(state, f)),
-                  ],
-                  if (foods.isEmpty && dishes.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(
-                          child: Text('没有匹配的食物，去"菜谱"添加吧',
-                              style: TextStyle(color: AppTheme.inkLight))),
+                  // 左侧分类栏（外卖点单式）
+                  Container(
+                    width: 78,
+                    color: const Color(0xFFF5EBDF),
+                    child: ListView(
+                      children: _categories.map((c) {
+                        final sel = _category == c;
+                        return InkWell(
+                          onTap: () => setState(() => _category = c),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 13, horizontal: 6),
+                            color: sel ? Colors.white : Colors.transparent,
+                            child: Text(c,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: sel
+                                        ? FontWeight.w800
+                                        : FontWeight.w400,
+                                    color: sel
+                                        ? AppTheme.primary
+                                        : AppTheme.ink)),
+                          ),
+                        );
+                      }).toList(),
                     ),
+                  ),
+                  // 右侧内容
+                  Expanded(
+                    child: Container(
+                      color: Colors.white,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(8, 6, 8, 24),
+                        children: [
+                          if (recentItems.isNotEmpty &&
+                              _query.isEmpty &&
+                              _category == '全部') ...[
+                            const _GroupLabel('最近吃过'),
+                            ...recentItems,
+                            const Divider(),
+                          ],
+                          if (dishes.isNotEmpty) ...[
+                            const _GroupLabel('菜肴'),
+                            ...dishes.map((d) => _dishTile(state, d)),
+                          ],
+                          if (foods.isNotEmpty) ...[
+                            const _GroupLabel('食物'),
+                            ...foods.map((f) => _foodTile(state, f)),
+                          ],
+                          if (foods.isEmpty && dishes.isEmpty &&
+                              recentItems.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(32),
+                              child: Center(
+                                  child: Text('没有匹配的食物，去"菜谱"添加吧',
+                                      style:
+                                          TextStyle(color: AppTheme.inkLight))),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -123,74 +215,228 @@ class _FoodPickerSheetState extends State<_FoodPickerSheet> {
     );
   }
 
+  /// 多选操作栏（删除/上移/下移/取消）
+  Widget _multiBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          TextButton.icon(
+            onPressed: () async {
+              for (final id in _selected.toList()) {
+                await _deleteRecent(id);
+              }
+              setState(() => _multi = false);
+            },
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('删除'),
+          ),
+          IconButton(
+            tooltip: '上移',
+            onPressed: _selected.length == 1 ? () => _moveSelected(-1) : null,
+            icon: const Icon(Icons.arrow_upward, size: 20),
+          ),
+          IconButton(
+            tooltip: '下移',
+            onPressed: _selected.length == 1 ? () => _moveSelected(1) : null,
+            icon: const Icon(Icons.arrow_downward, size: 20),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: () => setState(() {
+              _multi = false;
+              _selected.clear();
+            }),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _moveSelected(int delta) async {
+    final idx =
+        _recents.indexWhere((r) => r['ref_id'] == _selected.first);
+    if (idx < 0) return;
+    await _moveRecent(idx, delta);
+    setState(() => _multi = false);
+    _selected.clear();
+  }
+
+  /// 最近吃过条目（左滑删除、长按多选）
+  Widget _recentTile(AppState state, Object item, bool isDish, int rank) {
+    final refId = isDish ? (item as Dish).id : (item as Food).id;
+    final name = isDish ? (item as Dish).name : (item as Food).name;
+    final sel = _selected.contains(refId);
+    return Dismissible(
+      key: ValueKey('recent_$refId'),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        await _deleteRecent(refId);
+        return false;
+      },
+      background: Container(
+        color: AppTheme.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 16),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.only(left: 4, right: 8),
+        leading: _multi
+            ? Icon(sel ? Icons.check_circle : Icons.circle_outlined,
+                color: sel ? AppTheme.primary : AppTheme.inkLight)
+            : CircleAvatar(
+                radius: 14,
+                backgroundColor: const Color(0xFFFFE8D6),
+                child: Text(isDish ? '🍲' : '🕘',
+                    style: const TextStyle(fontSize: 14)),
+              ),
+        title: Text(name,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: const Text('最近吃过',
+            style: TextStyle(fontSize: 11, color: AppTheme.inkLight)),
+        onTap: () {
+          if (_multi) {
+            setState(() {
+              if (sel) {
+                _selected.remove(refId);
+              } else {
+                _selected.add(refId);
+              }
+            });
+          } else {
+            _pickItem(isDish, item);
+          }
+        },
+        onLongPress: () {
+          setState(() {
+            _multi = true;
+            _selected.add(refId);
+          });
+        },
+      ),
+    );
+  }
+
   Widget _dishTile(AppState state, Dish d) {
     final nut = d.computeNutrition(state.foodMap);
-    return ListTile(
-      leading: const CircleAvatar(
-          backgroundColor: Color(0xFFFFE8D6), child: Text('🍲', style: TextStyle(fontSize: 18))),
-      title: Text(d.name,
-          style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text('每份 ${nut.energyKcal.round()} kcal · ${d.ingredients.length} 种食材'),
-      onTap: () => _pickAmount(
-        name: d.name,
-        isDish: true,
-        refId: d.id,
-        perUnit: nut,
-        unitOptions: const ['份'],
-        defaultUnit: '份',
-        unitGrams: const {},
+    return Dismissible(
+      key: ValueKey('dish_${d.id}'),
+      direction: DismissDirection.startToEnd,
+      confirmDismiss: (_) async {
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => DishEditPage(dish: d)));
+        return false;
+      },
+      background: Container(
+        color: AppTheme.primary.withValues(alpha: 0.85),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 16),
+        child: const Icon(Icons.edit, color: Colors.white),
+      ),
+      child: ListTile(
+        leading: const CircleAvatar(
+            backgroundColor: Color(0xFFFFE8D6),
+            child: Text('🍲', style: TextStyle(fontSize: 18))),
+        title: Text(d.name,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(
+            '每100g ${_per100(nut, d).energyKcal.round()} kcal · ${d.ingredients.length} 种食材'),
+        onTap: () => _pickItem(true, d),
+        onLongPress: () => _openDishEdit(d),
       ),
     );
   }
 
   Widget _foodTile(AppState state, Food f) {
-    final unit = f.isLiquid ? '毫升' : '克';
-    return ListTile(
-      leading: CircleAvatar(
-          backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
-          child: Text(f.category.characters.first,
-              style: const TextStyle(fontSize: 13, color: AppTheme.primary))),
-      title: Text(f.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text('每100${f.isLiquid ? 'ml' : 'g'} ${f.per100.energyKcal.round()} kcal · 蛋白质${f.per100.proteinG.toStringAsFixed(1)}g'),
-      onTap: () => _pickAmount(
-        name: f.name,
-        isDish: false,
-        refId: f.id,
-        perUnit: f.per100,
-        unitOptions: [unit, ...f.units.map((u) => u.name)],
-        defaultUnit: unit,
-        liquid: f.isLiquid,
-        unitGrams: {for (final u in f.units) u.name: u.grams},
+    return Dismissible(
+      key: ValueKey('food_${f.id}'),
+      direction: DismissDirection.startToEnd,
+      confirmDismiss: (_) async {
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => FoodEditPage(food: f)));
+        return false;
+      },
+      background: Container(
+        color: AppTheme.primary.withValues(alpha: 0.85),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 16),
+        child: const Icon(Icons.edit, color: Colors.white),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+            backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
+            child: Text(f.category.characters.first,
+                style: const TextStyle(
+                    fontSize: 13, color: AppTheme.primary))),
+        title: Text(f.name,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(
+            '每100${f.isLiquid ? 'ml' : 'g'} ${f.per100.energyKcal.round()} kcal · 蛋白质${f.per100.proteinG.toStringAsFixed(1)}g'),
+        onTap: () => _pickItem(false, f),
+        onLongPress: () => _openFoodEdit(f),
       ),
     );
   }
 
-  Future<void> _pickAmount({
-    required String name,
-    required bool isDish,
-    required String refId,
-    required Nutrition perUnit,
-    required List<String> unitOptions,
-    required String defaultUnit,
-    bool liquid = false,
-    Map<String, double> unitGrams = const {},
-  }) async {
+  Future<void> _openFoodEdit(Food f) async {
+    await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => FoodEditPage(food: f)));
+  }
+
+  Future<void> _openDishEdit(Dish d) async {
+    await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => DishEditPage(dish: d)));
+  }
+
+  /// 菜肴每 100g 营养
+  Nutrition _per100(Nutrition total, Dish d) {
+    final grams = d.ingredients.fold<double>(0, (s, i) => s + i.grams);
+    if (grams <= 0) return total;
+    return total * (100 / grams);
+  }
+
+  Future<void> _pickItem(bool isDish, Object item) async {
+    final state = context.read<AppState>();
     final entry = await showModalBottomSheet<LogEntry>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _AmountSheet(
-        name: name,
-        isDish: isDish,
-        refId: refId,
-        perUnit: perUnit,
-        unitOptions: unitOptions,
-        defaultUnit: defaultUnit,
-        liquid: liquid,
-        unitGrams: unitGrams,
-      ),
+      builder: (_) {
+        if (isDish) {
+          final d = item as Dish;
+          final total = d.computeNutrition(state.foodMap);
+          final grams = d.ingredients.fold<double>(0, (s, i) => s + i.grams);
+          return _AmountSheet(
+            name: d.name,
+            isDish: true,
+            refId: d.id,
+            perUnit: _per100(total, d),
+            unitOptions: const ['克', '份'],
+            defaultUnit: '克',
+            liquid: false,
+            unitGrams: const {},
+            servingTotalGrams: grams,
+          );
+        }
+        final f = item as Food;
+        final unit = f.isLiquid ? '毫升' : '克';
+        return _AmountSheet(
+          name: f.name,
+          isDish: false,
+          refId: f.id,
+          perUnit: f.per100,
+          unitOptions: [unit, ...f.units.map((u) => u.name)],
+          defaultUnit: unit,
+          liquid: f.isLiquid,
+          unitGrams: {for (final u in f.units) u.name: u.grams},
+        );
+      },
     );
     if (entry != null && mounted) Navigator.of(context).pop(entry);
   }
@@ -219,6 +465,8 @@ class _AmountSheet extends StatefulWidget {
   final String defaultUnit;
   final bool liquid;
   final Map<String, double> unitGrams;
+  /// 菜肴一份的总克数（用于"份"换算）
+  final double servingTotalGrams;
 
   const _AmountSheet({
     required this.name,
@@ -229,6 +477,7 @@ class _AmountSheet extends StatefulWidget {
     required this.defaultUnit,
     required this.liquid,
     required this.unitGrams,
+    this.servingTotalGrams = 0,
   });
 
   @override
@@ -238,26 +487,46 @@ class _AmountSheet extends StatefulWidget {
 class _AmountSheetState extends State<_AmountSheet> {
   late String _unit;
   double _amount = 100;
+  late final TextEditingController _ctrl = TextEditingController(text: '100');
+  final _focus = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _unit = widget.defaultUnit;
-    _amount = widget.isDish ? 1 : 100;
+    _amount = widget.isDish && _unit == '份' ? 1 : 100;
+    _ctrl.text = _fmt(_amount);
   }
 
-  /// 换算为基础计量（克/毫升），菜肴按份数
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  /// 换算为基础计量（克/毫升）
   double get _baseAmount {
-    if (widget.isDish) return _amount;
     if (_unit == '克' || _unit == '毫升') return _amount;
     final g = widget.unitGrams[_unit];
     if (g != null) return _amount * g;
-    return _amount; // 未知单位按克兜底
+    return _amount;
   }
 
   double get _kcal {
-    if (widget.isDish) return widget.perUnit.energyKcal * _amount;
+    if (widget.isDish && _unit == '份') {
+      // 每份 = servingTotalGrams 克
+      final perServing = widget.perUnit.energyKcal * widget.servingTotalGrams / 100;
+      return perServing * _amount;
+    }
     return widget.perUnit.energyKcal * _baseAmount / 100;
+  }
+
+  void _setAmount(double v) {
+    setState(() => _amount = v.clamp(0, 99999).toDouble());
+    _ctrl.text = _fmt(_amount);
+    _ctrl.selection = TextSelection.fromPosition(
+        TextPosition(offset: _ctrl.text.length));
   }
 
   @override
@@ -282,23 +551,28 @@ class _AmountSheetState extends State<_AmountSheet> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
-                  onPressed: () => setState(() =>
-                      _amount = (_amount - _step).clamp(0, 9999)),
+                  onPressed: () => _setAmount(_amount - _step),
                   icon: const Icon(Icons.remove_circle_outline, size: 28)),
               SizedBox(
-                width: 120,
+                width: 130,
                 child: TextField(
+                  controller: _ctrl,
+                  focusNode: _focus,
+                  autofocus: true,
                   textAlign: TextAlign.center,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  controller: TextEditingController(text: _fmt(_amount)),
-                  onChanged: (s) =>
-                      setState(() => _amount = double.tryParse(s) ?? 0),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (s) {
+                    // 光标保持在末尾，允许小数
+                    _ctrl.selection = TextSelection.fromPosition(
+                        TextPosition(offset: _ctrl.text.length));
+                    setState(() => _amount = double.tryParse(s) ?? 0);
+                  },
                   decoration: const InputDecoration(isDense: true),
                 ),
               ),
               IconButton(
-                  onPressed: () => setState(() =>
-                      _amount = (_amount + _step).clamp(0, 9999)),
+                  onPressed: () => _setAmount(_amount + _step),
                   icon: const Icon(Icons.add_circle_outline, size: 28)),
             ],
           ),
@@ -309,7 +583,18 @@ class _AmountSheetState extends State<_AmountSheet> {
                 .map((u) => ChoiceChip(
                       label: Text(u),
                       selected: _unit == u,
-                      onSelected: (_) => setState(() => _unit = u),
+                      onSelected: (_) => setState(() {
+                        _unit = u;
+                        if (u == '份') {
+                          _amount = 1;
+                          _ctrl.text = '1';
+                        } else {
+                          _amount = 100;
+                          _ctrl.text = '100';
+                        }
+                        _ctrl.selection = TextSelection.fromPosition(
+                            TextPosition(offset: _ctrl.text.length));
+                      }),
                     ))
                 .toList(),
           ),
@@ -342,7 +627,7 @@ class _AmountSheetState extends State<_AmountSheet> {
     );
   }
 
-  double get _step => widget.isDish ? 1 : 10;
+  double get _step => (widget.isDish && _unit == '份') ? 1 : 10;
 
   String _fmt(double v) =>
       v == v.roundToDouble() ? v.round().toString() : v.toStringAsFixed(1);

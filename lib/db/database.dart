@@ -24,12 +24,35 @@ Future<Database> _open() async {
   return factory.openDatabase(
     path,
     options: OpenDatabaseOptions(
-      version: 1,
+      version: 4,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: (db, version) async {
         await createSchema(db);
+      },
+      onUpgrade: (db, oldV, newV) async {
+        if (oldV < 2) {
+          // v1.1：档案增加自定义基础代谢
+          await db.execute('ALTER TABLE profile ADD COLUMN custom_bmr REAL');
+          await db.execute(
+              'ALTER TABLE profile ADD COLUMN use_custom_bmr INTEGER DEFAULT 0');
+        }
+        if (oldV < 3) {
+          // v1.1：最近吃过记录
+          await db.execute('''
+            CREATE TABLE food_recent (
+              ref_id TEXT PRIMARY KEY,
+              is_dish INTEGER,
+              last_used INTEGER
+            )
+          ''');
+        }
+        if (oldV < 4) {
+          // v1.1：菜肴增加做法步骤
+          await db.execute(
+              'ALTER TABLE dishes ADD COLUMN steps_json TEXT');
+        }
       },
     ),
   );
@@ -42,6 +65,7 @@ Future<void> createSchema(Database db) async {
       id TEXT PRIMARY KEY,
       gender TEXT, age INTEGER, height_cm REAL, weight_kg REAL,
       activity TEXT, goal TEXT, ideal_deficit REAL, use_custom_deficit INTEGER,
+      custom_bmr REAL, use_custom_bmr INTEGER DEFAULT 0,
       water_target REAL, slogan TEXT,
       settle_hour INTEGER, settle_minute INTEGER,
       remind_breakfast INTEGER, remind_lunch INTEGER, remind_dinner INTEGER,
@@ -62,7 +86,8 @@ Future<void> createSchema(Database db) async {
   await db.execute('''
     CREATE TABLE dishes (
       id TEXT PRIMARY KEY,
-      name TEXT, note TEXT, builtin INTEGER, deleted INTEGER, updated_at INTEGER,
+      name TEXT, note TEXT, steps_json TEXT,
+      builtin INTEGER, deleted INTEGER, updated_at INTEGER,
       ingredients_json TEXT
     )
   ''');
@@ -90,6 +115,13 @@ Future<void> createSchema(Database db) async {
     CREATE TABLE weights (
       id TEXT PRIMARY KEY,
       date INTEGER, weight_kg REAL, updated_at INTEGER
+    )
+  ''');
+  await db.execute('''
+    CREATE TABLE food_recent (
+      ref_id TEXT PRIMARY KEY,
+      is_dish INTEGER,
+      last_used INTEGER
     )
   ''');
   await db.execute('CREATE INDEX idx_foods_name ON foods(name)');

@@ -312,7 +312,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     await _save();
   }
 
-  /// 导入到某天的记录
+  /// 导入到某天（作为独立计划绑定，不填入当日饮食）
   Future<void> _importToDay() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -322,11 +322,11 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
       lastDate: DateTime(now.year + 2, 12, 31),
     );
     if (picked == null) return;
-    await context.read<AppState>().copyPlanToDay(_plan, picked);
+    await context.read<AppState>().importPlansToDate([_plan], picked);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content:
-              Text('已导入到 ${DateFormat('M月d日').format(picked)} 的记录')));
+          content: Text(
+              '已导入到 ${DateFormat('M月d日').format(picked)}（独立计划，未占用当日饮食）')));
     }
   }
 

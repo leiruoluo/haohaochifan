@@ -50,6 +50,12 @@ app.*.map.json
 # 发布产物（体积大，不入库）
 /dist/
 
+# 用户本机已安装的 Windows 应用目录（保留在磁盘，不入库）
+/好好吃饭/
+
+# 金样测试失败产物（临时）
+/test/failures/
+
 # 本地构建辅助
 /tools/icon_out/
 *.tmp

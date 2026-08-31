@@ -193,7 +193,9 @@ class _RecipePageState extends State<RecipePage> {
             ),
             subtitle: Text(
                 '每份 ${nut.energyKcal.round()} kcal · ${d.ingredients.length} 种食材'
-                ' · 蛋白${nut.proteinG.toStringAsFixed(1)}g'),
+                ' · 蛋白${nut.proteinG.toStringAsFixed(1)}g'
+                ' · 脂肪${nut.fatG.toStringAsFixed(1)}g'
+                ' · 碳水${nut.carbsG.toStringAsFixed(1)}g'),
             onTap: () => _editDish(d),
           ),
         );

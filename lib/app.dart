@@ -104,7 +104,7 @@ class _AppShellState extends State<AppShell> {
                           Text(_titles[_index],
                               style: const TextStyle(
                                   fontSize: 18, fontWeight: FontWeight.w700)),
-                          const Spacer(),
+                          const SizedBox(width: 12),
                           _sloganChip(context),
                         ],
                       ),
@@ -193,11 +193,12 @@ class _AppShellState extends State<AppShell> {
 
   Widget _sloganChip(BuildContext context) {
     final state = context.watch<AppState>();
-    return Flexible(
+    return Expanded(
       child: Text(
         state.profile?.slogan.isNotEmpty == true
             ? state.profile!.slogan
             : '好好吃饭，好好生活',
+        textAlign: TextAlign.right,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontSize: 12, color: AppTheme.inkLight),
       ),

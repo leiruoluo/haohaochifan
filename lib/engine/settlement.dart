@@ -5,6 +5,7 @@ library;
 import '../models/dish.dart';
 import '../models/food.dart';
 import '../models/log.dart';
+import '../models/plan.dart';
 import '../models/profile.dart';
 import 'bmr.dart';
 
@@ -80,9 +81,10 @@ DaySettlement settleDay({
       if (e.isDish) {
         final d = dishes[e.refId];
         if (d != null) {
-          // 菜肴按"份"计：一份=配料定义的总量
-          nut = d.computeNutrition(foods) * e.amount;
-          base = e.amount; // 份数
+          // 菜肴：'份' 按整份，否则按克重（v1.1）
+          nut = d.nutritionFor(foods,
+              amount: e.amount, unitName: e.unitName);
+          base = e.amount;
         }
       } else {
         final f = foods[e.refId];
@@ -125,4 +127,30 @@ DaySettlement settleDay({
     resolvedEntries: resolved,
     exercises: log.exercises,
   );
+}
+
+/// 计算计划（食谱）一日的摄入营养：导入的计划与当日饮食分开对比
+Nutrition planNutrition(PlanDay plan, Map<String, Food> foods,
+    Map<String, Dish> dishes) {
+  var total = const Nutrition();
+  for (final meal in plan.meals) {
+    for (final i in meal.items) {
+      Nutrition nut = const Nutrition();
+      if (i.isDish) {
+        final d = dishes[i.refId];
+        if (d != null) {
+          nut = d.nutritionFor(foods,
+              amount: i.amount, unitName: i.unitName);
+        }
+      } else {
+        final f = foods[i.refId];
+        if (f != null) {
+          final base = f.amountToBase(i.amount, i.unitName);
+          nut = f.per100 * (base / 100);
+        }
+      }
+      total = total + nut;
+    }
+  }
+  return total;
 }

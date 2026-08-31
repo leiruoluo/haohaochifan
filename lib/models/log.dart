@@ -23,6 +23,7 @@ class LogEntry {
   });
 
   LogEntry copyWith({
+    String? id,
     String? refId,
     bool? isDish,
     String? name,
@@ -30,7 +31,7 @@ class LogEntry {
     String? unitName,
   }) =>
       LogEntry(
-        id: id,
+        id: id ?? this.id,
         refId: refId ?? this.refId,
         isDish: isDish ?? this.isDish,
         name: name ?? this.name,

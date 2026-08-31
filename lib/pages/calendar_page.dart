@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show showCupertinoModalPopup, CupertinoDatePicker, CupertinoDatePickerMode;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -80,31 +81,42 @@ class _CalendarPageState extends State<CalendarPage> {
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                  children: [
-                    _weekRow(),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 7,
-                        childAspectRatio: 0.82,
+              : GestureDetector(
+                  onHorizontalDragEnd: (d) {
+                    // 左右滑动切换月份
+                    if (d.primaryVelocity != null) {
+                      if (d.primaryVelocity! < -150) _changeMonth(1);
+                      if (d.primaryVelocity! > 150) _changeMonth(-1);
+                    }
+                  },
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                    children: [
+                      _weekRow(),
+                      const SizedBox(height: 2),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          childAspectRatio: 0.95,
+                        ),
+                        itemCount: totalCells,
+                        itemBuilder: (context, i) {
+                          final dayNum = i - leadingBlanks + 1;
+                          if (dayNum < 1 || dayNum > daysInMonth) {
+                            return const SizedBox();
+                          }
+                          final date =
+                              DateTime(_anchor.year, _anchor.month, dayNum);
+                          return _dayCell(date, dayNum, today);
+                        },
                       ),
-                      itemCount: totalCells,
-                      itemBuilder: (context, i) {
-                        final dayNum = i - leadingBlanks + 1;
-                        if (dayNum < 1 || dayNum > daysInMonth) {
-                          return const SizedBox();
-                        }
-                        final date =
-                            DateTime(_anchor.year, _anchor.month, dayNum);
-                        return _dayCell(date, dayNum, today);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    const _Legend(),
-                  ],
+                      const SizedBox(height: 12),
+                      const _Legend(),
+                    ],
+                  ),
                 ),
         ),
       ],
@@ -122,10 +134,14 @@ class _CalendarPageState extends State<CalendarPage> {
               onPressed: () => _changeMonth(-1),
               icon: const Icon(Icons.chevron_left)),
           Expanded(
-            child: Center(
-              child: Text('${_anchor.year}年${_anchor.month}月',
-                  style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.w700)),
+            child: InkWell(
+              onTap: _pickYearMonth,
+              borderRadius: BorderRadius.circular(8),
+              child: Center(
+                child: Text('${_anchor.year}年${_anchor.month}月',
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w700)),
+              ),
             ),
           ),
           IconButton(
@@ -143,6 +159,31 @@ class _CalendarPageState extends State<CalendarPage> {
         ],
       ),
     );
+  }
+
+  /// 点击年月弹出轮盘选择器快速切换
+  Future<void> _pickYearMonth() async {
+    final now = DateTime.now();
+    final picked = await showCupertinoModalPopup<DateTime>(
+      context: context,
+      builder: (_) => Container(
+        height: 260,
+        color: Colors.white,
+        child: CupertinoDatePicker(
+          mode: CupertinoDatePickerMode.date,
+          initialDateTime: _anchor,
+          minimumDate: DateTime(now.year - 10, 1),
+          maximumDate: DateTime(now.year + 10, 12, 31),
+          onDateTimeChanged: (d) {
+            Navigator.of(context).pop(d);
+          },
+        ),
+      ),
+    );
+    if (picked != null) {
+      setState(() => _anchor = DateTime(picked.year, picked.month, 1));
+      _load();
+    }
   }
 
   Widget _weekRow() {
@@ -174,33 +215,42 @@ class _CalendarPageState extends State<CalendarPage> {
 
     return InkWell(
       onTap: () => _openDay(date),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        margin: const EdgeInsets.all(2),
+        margin: const EdgeInsets.all(1.5),
         decoration: BoxDecoration(
           color: isToday ? AppTheme.primary.withValues(alpha: 0.12) : null,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: isToday
               ? Border.all(color: AppTheme.primary, width: 1.2)
               : null,
         ),
+        // 固定布局：数字位置恒定，状态区在数字下方固定高度，不改变数字位置
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const SizedBox(height: 5),
             Text('$dayNum',
                 style: TextStyle(
                     fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
                     color: isToday ? AppTheme.primary : AppTheme.ink)),
-            const SizedBox(height: 3),
-            if (dot != null)
-              Container(
-                  width: 7, height: 7, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
-            if (kcal != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text('$kcal',
-                    style: const TextStyle(fontSize: 9, color: AppTheme.inkLight)),
+            const Spacer(),
+            SizedBox(
+              height: 13,
+              child: Center(
+                child: dot != null
+                    ? Container(
+                        width: 7,
+                        height: 7,
+                        decoration:
+                            BoxDecoration(color: dot, shape: BoxShape.circle))
+                    : (kcal != null
+                        ? Text('$kcal',
+                            style: const TextStyle(
+                                fontSize: 9, color: AppTheme.inkLight))
+                        : const SizedBox.shrink()),
               ),
+            ),
+            const SizedBox(height: 2),
           ],
         ),
       ),

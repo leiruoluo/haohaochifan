@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../engine/bmr.dart' show effectiveBmr;
 import '../models/profile.dart';
 import '../platform/platform_utils.dart';
 import '../state/app_state.dart';
@@ -56,6 +57,16 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: Text('${p.goal.label} · 理想缺口 ${p.effectiveIdealDeficit.round()} kcal/天'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _editGoals(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.monitor_weight_outlined),
+            title: const Text('基础代谢（BMR）'),
+            subtitle: Text(
+                p.useCustomBmr && p.customBmrKcal != null
+                    ? '自定义 ${p.customBmrKcal!.round()} kcal/天'
+                    : '自动计算 ${effectiveBmr(p).round()} kcal/天（点按可改）'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _editBmr(context),
           ),
           ListTile(
             leading: const Icon(Icons.water_drop_outlined),
@@ -343,6 +354,61 @@ class _SettingsPageState extends State<SettingsPage> {
                     useCustomDeficit: custom,
                     idealDeficitKcal: deficit,
                     updatedAt: DateTime.now()));
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editBmr(BuildContext context) async {
+    final p = context.read<AppState>().profile ?? const UserProfile();
+    var useCustom = p.useCustomBmr;
+    final ctrl = TextEditingController(
+        text: (p.customBmrKcal ?? effectiveBmr(p)).round().toString());
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Text('基础代谢（BMR）'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('按公式自动计算：${effectiveBmr(p).round()} kcal/天',
+                  style:
+                      const TextStyle(fontSize: 12, color: AppTheme.inkLight)),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('使用自定义值'),
+                value: useCustom,
+                onChanged: (v) => setDlg(() => useCustom = v),
+              ),
+              if (useCustom)
+                TextField(
+                  controller: ctrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                      labelText: '基础代谢（kcal/天）',
+                      hintText: '可填体测/设备测得数值',
+                      suffixText: 'kcal',
+                      isDense: true),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _saveProfile(p.copyWith(
+                  useCustomBmr: useCustom,
+                  customBmrKcal:
+                      useCustom ? double.tryParse(ctrl.text) : null,
+                  updatedAt: DateTime.now(),
+                ));
               },
               child: const Text('保存'),
             ),
